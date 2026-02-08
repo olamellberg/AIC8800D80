@@ -1,0 +1,32 @@
+--- a/aic8800_fdrv/aicwf_usb.c
++++ b/aic8800_fdrv/aicwf_usb.c
+@@ -XXX,6 +XXX,7 @@ static struct usb_device_id aicwf_usb_id_table[] = {
+ 	{USB_DEVICE(USB_VENDOR_ID_AIC, USB_DEVICE_ID_AIC_8800D80)},
++	{USB_DEVICE(USB_VENDOR_ID_AIC, USB_PRODUCT_ID_AIC8800M80_CUS1)},   /* a69c:8d83 - Pandora clone post-switch */
+ 	{USB_DEVICE(USB_VENDOR_ID_AIC_V2, USB_DEVICE_ID_AIC_8800D89X2)},
+ 	{}
+ };
+
+NOTE: This is a conceptual patch. The exact line numbers depend on your
+driver version. The goal is to add {USB_DEVICE(0xa69c, 0x8d83)} to the
+aicwf_usb_id_table[] array in the aic8800_fdrv module.
+
+If USB_PRODUCT_ID_AIC8800M80_CUS1 is not defined in your driver version,
+use the raw values instead:
+
+--- a/aic8800_fdrv/aicwf_usb.c
++++ b/aic8800_fdrv/aicwf_usb.c
+@@ -XXX,6 +XXX,7 @@ static struct usb_device_id aicwf_usb_id_table[] = {
+ 	{USB_DEVICE(USB_VENDOR_ID_AIC, USB_DEVICE_ID_AIC_8800D80)},
++	{USB_DEVICE(0xa69c, 0x8d83)},   /* Pandora clone: a69c:8d83 post-switch */
+ 	{USB_DEVICE(USB_VENDOR_ID_AIC_V2, USB_DEVICE_ID_AIC_8800D89X2)},
+ 	{}
+ };
+
+After patching, rebuild with DKMS:
+  sudo dkms build aic8800/1.0.8
+  sudo dkms install aic8800/1.0.8
+
+Alternative (no rebuild required):
+  sudo modprobe aic8800_fdrv
+  echo 'a69c 8d83' | sudo tee /sys/bus/usb/drivers/aic8800_fdrv/new_id

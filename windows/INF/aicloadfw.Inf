@@ -1,0 +1,113 @@
+; /*++
+;
+; Copyright (c) Microsoft Corporation.  All rights reserved.
+;
+;      THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
+;      KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+;      IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR
+;      PURPOSE.
+;
+; Module Name:
+;
+;        Aic Load Fw
+;
+; Abstract:
+;        Installation inf for Aic Load Fw
+;
+; --*/
+
+; Class=Sample
+; 78A1C341-4539-11d3-B88D-00C04FAD5171
+[Version]
+Signature="$WINDOWS NT$"
+Class=Aic
+ClassGuid={3e050da3-b774-70be-9d3c-b043ec9e6e92}
+Provider=%ProviderName%
+DriverVer = 08/31/2024,9.49.15.696
+CatalogFile = aicloadfw.cat
+
+; ================= Class section =======================
+
+[ClassInstall32]
+Addreg=SampleClassReg
+
+[SampleClassReg]
+HKR,,,0,%ClassName%
+HKR,,Icon,,-5
+
+
+; ================= Device section =======================
+
+[Manufacturer]
+%MfgName%=AIC,NTamd64
+
+[AIC.NTamd64]
+;%USB\VID_A69C&PID_8800.DeviceDesc%=aicloadfw.Dev, USB\VID_A69C&PID_8800
+%USB\VID_A69C&PID_8800.DeviceDesc%=aicloadfw.Dev, USB\VID_A69C&PID_8d80
+
+[aicloadfw.Dev.NT]
+CopyFiles=aicloadfw.Files.Ext
+
+[Switch.Dev.NT]
+; dummy section
+
+[Switch.Dev.NT.Services]
+AddService = , %SPSVCINST_ASSOCSERVICE%,
+
+[aicloadfw.Dev.NT.Services]
+AddService = aicloadfw, %SPSVCINST_ASSOCSERVICE%, aicloadfw.AddService
+
+[aicloadfw.AddService]
+DisplayName    = %aicloadfw.SvcDesc%
+ServiceType    = 1                    ; SERVICE_KERNEL_DRIVER
+StartType      = 3                    ; SERVICE_DEMAND_START
+ErrorControl   = 1                    ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\aicloadfw.sys
+
+[aicloadfw.Files.Ext]
+aicloadfw.sys
+
+[SourceDisksNames]
+1=%Disk_Description%,,,
+
+[SourceDisksFiles]
+aicloadfw.sys = 1
+;
+
+
+[DestinationDirs]
+DefaultDestDir = 12
+CoInstaller_CopyFiles = 11
+
+;-------------- WDF Coinstaller installation
+
+[aicloadfw.Dev.NT.CoInstallers]
+AddReg=CoInstaller_AddReg
+CopyFiles=CoInstaller_CopyFiles
+
+[CoInstaller_CopyFiles]
+;
+
+
+[CoInstaller_AddReg]
+;
+
+
+[aicloadfw.Dev.NT.Wdf]
+KmdfService = aicloadfw, aicloadfw_wdfsect
+
+[aicloadfw_wdfsect]
+KmdfLibraryVersion = 1.15
+
+;---------------------------------------------------------------;
+
+[Strings]
+ProviderName="AIC"
+MfgName="AIC"
+Disk_Description="Download Fw"
+USB\VID_A69C&PID_8800.DeviceDesc="AIC Load Fw Driver"
+aicloadfw.SvcDesc="AIC Load Fw Driver"
+ClassName                 = "Aic Load fw"
+Switch.DeviceDesc         = "Aic Load Fw"
+SPSVCINST_ASSOCSERVICE = 0x00000002
+OtaKey="d3ce088cfa29e92ee5b88a4ae0123c72069fc840"

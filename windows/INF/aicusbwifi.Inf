@@ -1,0 +1,211 @@
+; /****************************************************************************
+; ** DEVELOPED BY AIC **
+; ****************************************************************************/
+[Version]
+Signature   = "$Windows NT$"
+Class       = Net
+ClassGUID   = {4d36e972-e325-11ce-bfc1-08002be10318}
+Provider    = "AIC"
+CatalogFile = aicusbwifi.cat
+DriverVer = 08/31/2024,6.40.60.210
+PnpLockdown = 1
+
+[Manufacturer]
+%AIC%     = AIC, NTamd64
+
+[ControlFlags]
+ExcludeFromSelect = *
+
+[AIC.NTamd64]
+; DisplayName                   Section         DeviceID
+; -----------                   -------         --------
+%AIC.DeviceDesc_8801%         = aic.ndi,        USB\VID_A69C&PID_8801&MI_02
+%AIC.DeviceDesc_368b_8d81%    = aic.ndi,        USB\VID_A69C&PID_8d81&MI_02
+%AIC.DeviceDesc_368b_8d81%    = aic.ndi,        USB\VID_368b&PID_8d81&MI_02
+%AIC.DeviceDesc_8d81%         = aic.ndi,        USB\VID_368b&PID_8d84
+%AIC.DeviceDesc_8d81%         = aic.ndi,        USB\VID_A69C&PID_8d83
+%AIC.DeviceDesc_8d81%         = aic.ndi,        USB\VID_368b&PID_8d83
+%AIC.DeviceDesc_8d85%         = aic.ndi,        USB\VID_368b&PID_8d85
+%AIC.DeviceDesc_8d81%         = aic.ndi,        USB\VID_368b&PID_8d86
+%AIC.DeviceDesc_8d88%         = aic.ndi,        USB\VID_368b&PID_8d88
+%AIC.DeviceDesc_2604_D80%     = aic.ndi,        USB\VID_2604&PID_001F
+%AIC.DeviceDesc_2604_D80%     = aic.ndi,        USB\VID_2604&PID_0020
+%AIC.DeviceDesc_2357_014E%    = aic.ndi,        USB\VID_2357&PID_014E
+%AIC.DeviceDesc_2357_014B%    = aic.ndi,        USB\VID_2357&PID_014B
+%AIC.DeviceDesc_2357_014F%    = aic.ndi,        USB\VID_2357&PID_014F
+%AIC.DeviceDesc_88dc%         = aic.ndi,        USB\VID_A69C&PID_88DC
+%AIC.DeviceDesc_88dc%         = aic.ndi,        USB\VID_A69C&PID_88DD
+%AIC.DeviceDesc_88dc%         = aic.ndi,        USB\VID_A69C&PID_88DE
+%AIC.DeviceDesc_88dc%         = aic.ndi,        USB\VID_368B&PID_88DF
+%AIC.DeviceDesc_2604%         = aic.ndi,        USB\VID_2604&PID_0013
+%AIC.DeviceDesc_2604%         = aic.ndi,        USB\VID_2604&PID_0014
+%AIC.DeviceDesc_cus%          = aic.ndi,        USB\VID_2604&PID_0015
+%AIC.DeviceDesc_cus%          = aic.ndi,        USB\VID_2604&PID_0016
+%AIC.DeviceDesc_cus%          = aic.ndi,        USB\VID_2604&PID_0017
+%AIC.DeviceDesc_cus%          = aic.ndi,        USB\VID_2604&PID_0018
+%AIC.DeviceDesc_cus%          = aic.ndi,        USB\VID_2604&PID_0019
+%AIC.DeviceDesc_cus%          = aic.ndi,        USB\VID_2604&PID_001A
+%AIC.DeviceDesc_cus%          = aic.ndi,        USB\VID_2604&PID_001B
+%AIC.DeviceDesc_cus%          = aic.ndi,        USB\VID_2604&PID_001C
+%AIC.DeviceDesc_cus%          = aic.ndi,        USB\VID_2604&PID_001D
+%AIC.DeviceDesc_cus%          = aic.ndi,        USB\VID_2604&PID_001E
+%AIC.DeviceDesc_2357%          = aic.ndi,        USB\VID_2357&PID_0147
+
+[aic.ndi.NTamd64]
+Include=netvwifibus.inf
+Needs=VWiFiBus.CopyFiles
+Characteristics = 0x84
+BusType         = 15
+AddReg          = aic.reg
+CopyFiles       = aic.CopyFiles
+*IfType         = 71            ; IF_TYPE_IEEE80211
+*MediaType      = 16            ; NdisMediumNative802_11
+*PhysicalMediaType = 9          ; NdisPhysicalMediumNative802_11
+
+[aic.ndi.NTamd64.Services]
+Include=netvwifibus.inf
+Needs=VWiFiBus.Services
+AddService = aicusbwifi, 2, aic.Service, aic.EventLog
+
+[aic.ndi.NTamd64.HW]
+Include=netvwifibus.inf
+Needs=VWiFiBus.PnPFilterRegistration.HW
+
+[aic.reg]
+HKR, Ndi,                         Service,    0, "aicusbwifi"
+
+HKR, Ndi\Interfaces,              UpperRange, 0, "ndis5"
+HKR, Ndi\Interfaces,              LowerRange, 0, "wlan,ethernet,vwifi"
+
+HKR, Ndi\params\*ReceiveBuffers,  ParamDesc,  0, "%ReceiveBuffers%"
+HKR, Ndi\params\*ReceiveBuffers,  default,    0, "300"
+HKR, Ndi\params\*ReceiveBuffers,  min,        0, "1"
+HKR, Ndi\params\*ReceiveBuffers,  max,        0, "00001024"
+HKR, Ndi\params\*ReceiveBuffers,  step,       0, "1"
+HKR, Ndi\params\*ReceiveBuffers,  Base,       0, "10"
+HKR, Ndi\params\*ReceiveBuffers,  type,       0, "int"
+
+HKR, Ndi\params\*TransmitBuffers, ParamDesc,  0, "%TransmitBuffers%"
+HKR, Ndi\params\*TransmitBuffers, default,    0, "160"
+HKR, Ndi\params\*TransmitBuffers, min,        0, "1"
+HKR, Ndi\params\*TransmitBuffers, max,        0, "00000512"
+HKR, Ndi\params\*TransmitBuffers, step,       0, "1"
+HKR, Ndi\params\*TransmitBuffers, Base,       0, "10"
+HKR, Ndi\params\*TransmitBuffers, type,       0, "int"
+
+
+HKR, Ndi\Params\HeTxMcsMap,                   ParamDesc,   0, %HeTxMcsMap%
+HKR, Ndi\Params\HeTxMcsMap,                   Type,        0, "enum"
+HKR, Ndi\Params\HeTxMcsMap,                   Default,     0, "2"
+HKR, Ndi\Params\HeTxMcsMap\enum,              "1",         0, %HeTxMcsSupport9%
+HKR, Ndi\Params\HeTxMcsMap\enum,              "2",         0, %HeTxMcsSupport11%
+
+HKR, Ndi\Params\TxAdaptivityEn,                   ParamDesc,   0, %TxAdaptivityEn%
+HKR, Ndi\Params\TxAdaptivityEn,                   Type,        0, "enum"
+HKR, Ndi\Params\TxAdaptivityEn,                   Default,     0, "0"
+HKR, Ndi\Params\TxAdaptivityEn,                   Optional,    0, "0"
+HKR, Ndi\Params\TxAdaptivityEn\enum,              "0",         0, %TxAdaptivityDisabLe%
+HKR, Ndi\Params\TxAdaptivityEn\enum,              "1",         0, %TxAdaptivityENabLe%
+
+HKR, Ndi\Params\IEEE11abgMode,                   ParamDesc,   0, %11A_B_G_MODE%
+HKR, Ndi\Params\IEEE11abgMode,                   Type,        0, "enum"
+HKR, Ndi\Params\IEEE11abgMode,                   Default,     0, "3"
+HKR, Ndi\Params\IEEE11abgMode,                   Optional,    0, "0"
+HKR, Ndi\Params\IEEE11abgMode\enum,              "0",         0, %N_AC_AX_DISABLED_STR%
+HKR, Ndi\Params\IEEE11abgMode\enum,              "1",         0, %AC_AX_DISABLED_STR%
+HKR, Ndi\Params\IEEE11abgMode\enum,              "2",         0, %AX_DISABLED_STR%
+HKR, Ndi\Params\IEEE11abgMode\enum,              "3",         0, %N_AC_AX_ENABLED_STR%
+
+
+[aic.Service]
+DisplayName     = %AIC.Service.DispName%
+ServiceType     = 1             ;SERVICE_KERNEL_DRIVER
+StartType       = 3             ;SERVICE_DEMAND_START
+ErrorControl    = 1             ;SERVICE_ERROR_NORMAL
+ServiceBinary   = %12%\aicusbwifi.sys
+LoadOrderGroup  = NDIS
+
+[aic.EventLog]
+AddReg = aic.AddEventLog.reg
+
+[aic.AddEventLog.reg]
+HKR, , EventMessageFile, 0x00020000, "%%SystemRoot%%\System32\netevent.dll"
+HKR, , TypesSupported,   0x00010001, 7
+
+[aic.CopyFiles]
+aicusbwifi.sys,,,2
+
+[SourceDisksNames]
+1 = %DiskDescription%,aicusbwifi.sys,,
+
+[SourceDisksFiles]
+aicusbwifi.sys = 1
+;
+
+
+[DestinationDirs]
+;aic.CopyFiles          = 12
+;DefaultDestDirs            = 11
+DefaultDestDir            = 12
+CoInstaller_CopyFiles	   = 11
+
+;-------------- WDF Coinstaller installation
+
+[aic.ndi.NTamd64.CoInstallers]
+AddReg=CoInstaller_AddReg
+CopyFiles=CoInstaller_CopyFiles
+
+[CoInstaller_CopyFiles]
+;
+
+
+;[SourceDisksFiles]
+;aicusbwifi.sys = 1
+;WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1,, ; make sure the number matches with SourceDisksNames
+
+[CoInstaller_AddReg]
+;
+
+
+[aic.ndi.NTamd64.Wdf]
+KmdfService = aicusbwifi, aic_wdfsect
+
+[aic_wdfsect]
+KmdfLibraryVersion = 1.15
+
+;---------------------------------------------------------------;
+
+[Strings]
+Msft                         = "Microsoft"
+AIC 					     = "iGrentech"
+AIC.DeviceDesc_8801          = "AIC USB WiFi"
+AIC.DeviceDesc_88dc          = "AIC88DC USB WiFi"
+AIC.DeviceDesc_8d88          = "UGREEN Wi-Fi 6 USB Adapter"
+AIC.DeviceDesc_8d81          = "AIC8800D80 USB WiFi"
+AIC.DeviceDesc_368b_8d81     = "Wifi6 802.11ax USB Adapter"
+AIC.DeviceDesc_2357_014E     = "TP-LINK Wireless USB Adapter"
+AIC.DeviceDesc_2357_014B     = "MERCURY Wireless USB Adapter"
+AIC.DeviceDesc_2357_014F     = "FAST Wireless USB Adapter"
+AIC.DeviceDesc_2604_D80      = "Tenda WiFi 6 Wireless USB Adapter"
+AIC.DeviceDesc_8d18          = "AIC8800D80 USB WiFi"
+AIC.DeviceDesc_2604          = "Tenda Wireless USB Adapter"
+AIC.DeviceDesc_cus           = "Wireless LAN WIFI 6 USB Adapter"
+AIC.DeviceDesc_8d85          = "Ugreen WIFI6 Wireless USB NIC"
+AIC.DeviceDesc_2357          = "TP-LINK Wireless N Adapter"
+AIC.Service.DispName         = "AIC 802.11 Wireless Device Driver"
+DiskDescription              = "AIC USB WiFi Driver"
+TransmitBuffers              = "Transmit Buffers"
+ReceiveBuffers               = "Receive Buffers"
+HeTxMcsMap                   = "He Msc Map"
+HeTxMcsSupport9              = "He Msc9"
+HeTxMcsSupport11             = "He Msc11"
+TxAdaptivityEn               = "Aic Tx Adaptivity"
+TxAdaptivityDisabLe          = "Disable Tx Adaptivity"
+TxAdaptivityEnabLe           = "Enable Tx Adaptivity"
+11A_B_G_MODE                 = "802.11 Wireless Mode"
+N_AC_AX_DISABLED_STR         = "802.11a/b/g"
+AC_AX_DISABLED_STR           = "802.11a/b/g/n"
+AX_DISABLED_STR              = "802.11a/b/g/n/ac"
+N_AC_AX_ENABLED_STR          = "802.11a/b/g/n/ac/ax"
+OtaKey                       = "da681918c11078801e432552b70bd4a95fad9b6d"
+
