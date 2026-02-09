@@ -1,0 +1,29 @@
+--- a/aic_btusb/aic_btusb.c
++++ b/aic_btusb/aic_btusb.c
+@@ -XXX,6 +XXX,7 @@ static struct usb_device_id btusb_table[] = {
+ 	{USB_DEVICE_AND_INTERFACE_INFO(USB_VENDOR_ID_AIC, USB_PRODUCT_ID_AIC8800D80, 0xe0, 0x01, 0x01)},
++	{USB_DEVICE_AND_INTERFACE_INFO(USB_VENDOR_ID_AIC, 0x8d83, 0xe0, 0x01, 0x01)},   /* Pandora clone: a69c:8d83 */
+ 	{USB_DEVICE_AND_INTERFACE_INFO(USB_VENDOR_ID_AIC, USB_PRODUCT_ID_AIC8800DC, 0xe0, 0x01, 0x01)},
+ 	{USB_DEVICE_AND_INTERFACE_INFO(USB_VENDOR_ID_AIC_V2, USB_PRODUCT_ID_AIC8800D80X2, 0xe0, 0x01, 0x01)},
+ 	{}
+
+This patch adds the Pandora clone VID:PID (a69c:8d83) to the aic_btusb
+USB device ID table so the Bluetooth driver can claim the BT interface
+on these adapters.
+
+The upstream driver only has PID 0x8d81 (USB_PRODUCT_ID_AIC8800D80) for
+the AIC8800D80's Bluetooth interface. Clone adapters sold as "WIFI6-BW22",
+"88M80", etc. with initial VID:PID 1111:1111 enumerate as a69c:8d83 after
+mode-switch and firmware load, and need this additional entry.
+
+The 0xe0/0x01/0x01 interface class filter ensures this only matches the
+Bluetooth interface (not the WiFi vendor-specific interface on the same
+composite device).
+
+How to apply:
+  Find aic_btusb.c in your DKMS source (e.g. /usr/src/aic8800-*/aic_btusb/)
+  and add the line with 0x8d83 to the btusb_table[] array.
+  Then rebuild the module with DKMS.
+
+Alternative (no rebuild required):
+  echo 'a69c 8d83' | sudo tee /sys/bus/usb/drivers/aic_btusb/new_id

@@ -1,0 +1,26 @@
+--- a/aic_btusb/aic_btusb.h
++++ b/aic_btusb/aic_btusb.h
+@@ -37,7 +37,7 @@
+
+
+ #ifdef CONFIG_PLATFORM_UBUNTU
+-#define CONFIG_BLUEDROID        1 /* bleuz 0, bluedroid 1 */
++#define CONFIG_BLUEDROID        0 /* bleuz 0, bluedroid 1 */
+ #else
+ #define CONFIG_BLUEDROID        1 /* bleuz 0, bluedroid 1 */
+ #endif
+
+This patch switches the Bluetooth stack from Android's BlueDroid to Linux's
+BlueZ on Ubuntu/desktop Linux platforms.
+
+Without this patch, the aic_btusb driver creates a character device
+(/dev/rtk_btusb) for the Android BlueDroid stack instead of registering
+with the kernel's BlueZ HCI layer. This means standard Linux Bluetooth
+tools (bluetoothctl, blueman, etc.) will not see the adapter.
+
+Origin: https://github.com/radxa-pkg/aic8800 (fix-aic_btusb-use-bluez-by-default.patch)
+
+How to apply:
+  Find aic_btusb.h in your DKMS source (e.g. /usr/src/aic8800-*/aic_btusb/)
+  and change CONFIG_BLUEDROID from 1 to 0 under #ifdef CONFIG_PLATFORM_UBUNTU.
+  Then rebuild the module with DKMS.

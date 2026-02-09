@@ -1,7 +1,19 @@
-# AIC8800D80 "Pandora" clone adapter - automatic mode switch
+# AIC8800D80 "Pandora" clone adapter - automatic mode switch & driver binding
 # Triggers usb_modeswitch when the device is plugged in as 1111:1111
+
+# --- Mode Switch ---
 ACTION=="add", ATTRS{idVendor}=="1111", ATTRS{idProduct}=="1111", RUN+="/usr/sbin/usb_modeswitch -c /etc/usb_modeswitch.d/1111:1111"
 
-# After mode switch, the device re-enumerates as a69c:8d83 (WiFi mode).
-# If aic8800_fdrv doesn't auto-bind, add the VID:PID dynamically:
+# --- WiFi Driver Binding ---
+# After mode switch, the device re-enumerates as a69c:8d81 (Radxa fw) or a69c:8d83 (Brostrend fw).
+# If aic8800_fdrv doesn't auto-bind to the WiFi interface, add the VID:PID dynamically:
+ACTION=="add", ATTRS{idVendor}=="a69c", ATTRS{idProduct}=="8d81", RUN+="/bin/sh -c 'echo a69c 8d81 > /sys/bus/usb/drivers/aic8800_fdrv/new_id 2>/dev/null || true'"
 ACTION=="add", ATTRS{idVendor}=="a69c", ATTRS{idProduct}=="8d83", RUN+="/bin/sh -c 'echo a69c 8d83 > /sys/bus/usb/drivers/aic8800_fdrv/new_id 2>/dev/null || true'"
+
+# --- Bluetooth Driver Binding ---
+# PID 8d81 (Radxa fw with BT enabled) exposes BT interfaces.
+# If aic_btusb doesn't auto-bind, add the VID:PID dynamically.
+ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="a69c", ATTRS{idProduct}=="8d81", ATTR{bInterfaceClass}=="e0", ATTR{bInterfaceSubClass}=="01", ATTR{bInterfaceProtocol}=="01", RUN+="/bin/sh -c 'echo a69c 8d81 > /sys/bus/usb/drivers/aic_btusb/new_id 2>/dev/null || true'"
+
+# Unblock rfkill for Bluetooth
+ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="a69c", ATTRS{idProduct}=="8d81", RUN+="/bin/sh -c 'rfkill unblock bluetooth 2>/dev/null || true'"
