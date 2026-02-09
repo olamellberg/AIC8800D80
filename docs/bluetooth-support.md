@@ -130,44 +130,34 @@ alias usb:v0A69Cp8D81d*dc*dsc*dp*icE0isc01ip01in* aic_btusb
 alias usb:v0A69Cp8D83d*dc*dsc*dp*icE0isc01ip01in* aic_btusb
 ```
 
-## Quick Install (All Steps)
+## Quick Install
+
+The all-in-one `install.sh` script handles everything automatically: DKMS patching, aic_btusb build, modprobe config, and module autoload.
 
 ```bash
 git clone https://github.com/olamellberg/AIC8800D80.git
 cd AIC8800D80/linux
-
-# Step 1: Install prerequisites + mode-switch + udev rules + WiFi driver fixes
 sudo bash install.sh
+```
 
-# Step 2: Build and install aic_btusb
-sudo bash build-aic-btusb.sh
+The script will:
+1. Install prerequisites (usb-modeswitch, sg3-utils, build tools, kernel headers)
+2. Set up usb_modeswitch config and udev rules
+3. Patch `aic_load_fw` for BT firmware loading (replace Brostrend's disabled version with Radxa's)
+4. Patch WiFi driver VID:PID table and rebuild DKMS
+5. Build and install `aic_btusb` (with BlueZ fix + PID patches)
+6. Install modprobe config and module autoload
 
-# Step 3: Fix aic_load_fw for BT support (if using Brostrend DKMS)
-# Get Radxa source
-git clone --depth 1 --filter=blob:none --sparse \
-    https://github.com/radxa-pkg/aic8800.git /tmp/radxa-aic
-cd /tmp/radxa-aic && git sparse-checkout set src/USB/driver_fw/driver/aic_load_fw
+After the script completes, unplug and re-plug the adapter:
 
-# Replace and rebuild
-sudo cp /tmp/radxa-aic/src/USB/driver_fw/driver/aic_load_fw/aic_compat_8800d80.c \
-    /usr/src/aic8800-1.0.8/aic_load_fw/aic_compat_8800d80.c
-KVER=$(uname -r)
-sudo dkms remove aic8800/1.0.8 -k "$KVER"
-sudo dkms build aic8800/1.0.8 -k "$KVER"
-sudo dkms install aic8800/1.0.8 -k "$KVER" --force
-
-# Step 4: Reload modules and re-plug the adapter
-sudo rmmod aic_btusb btusb aic8800_fdrv aic_load_fw 2>/dev/null
-sudo modprobe aic_load_fw
-sudo modprobe aic_btusb
-# Physically unplug and re-plug the USB adapter
-
-# Step 5: Verify
+```bash
 lsusb                    # Should show a69c:8d81
 lsusb -t                 # Should show 3 interfaces
 hciconfig -a             # Should show hci1 (or hci0 if no onboard BT)
 bluetoothctl show        # Should show the AIC controller
 ```
+
+For manual step-by-step instructions, see the individual sections below or [build-aic-btusb.sh](../linux/build-aic-btusb.sh) for standalone aic_btusb building.
 
 ## Troubleshooting
 
@@ -175,7 +165,7 @@ bluetoothctl show        # Should show the AIC controller
 
 **Cause:** `aic_load_fw` is not loading BT firmware patches. The Brostrend DKMS has BT disabled.
 
-**Fix:** Replace `aic_compat_8800d80.c` with the Radxa version and rebuild DKMS. See [Fixing aic_load_fw](#fixing-aic_load_fw-for-bt-support).
+**Fix:** Re-run `sudo bash install.sh` (it patches aic_load_fw automatically), or manually replace `aic_compat_8800d80.c` with the Radxa version and rebuild DKMS. See [Fixing aic_load_fw](#fixing-aic_load_fw-for-bt-support).
 
 **Verify:** Check if the compiled module has BT firmware strings:
 ```bash
@@ -277,8 +267,8 @@ Our adapter reports `chip_id=7` (`CHIP_REV_U03`) but uses `_u02` firmware files.
 
 | File | Purpose |
 |------|---------|
-| `linux/install.sh` | Automated installer (mode-switch, udev, WiFi driver fixes, BT config) |
-| `linux/build-aic-btusb.sh` | Build aic_btusb from Radxa source with all fixes applied |
+| `linux/install.sh` | All-in-one installer (mode-switch, udev, DKMS patching, aic_btusb build, BT config) |
+| `linux/build-aic-btusb.sh` | Standalone aic_btusb builder (if you only need the BT driver) |
 | `linux/udev/41-aic8800d80-modeswitch.rules` | udev rules for auto mode-switch and driver binding |
 | `linux/modprobe/aic8800-bt.conf` | Prevent generic btusb from claiming AIC devices |
 | `linux/usb_modeswitch/1111_1111` | usb_modeswitch config with vendor SCSI CDB |

@@ -6,7 +6,9 @@ These adapters use a clone VID:PID `1111:1111` ("Pandora") and show up as a fake
 
 ## Quick Start (Linux)
 
-### Automated Install
+**Prerequisite:** You need the AIC8800 DKMS driver installed (provides `aic_load_fw` + `aic8800_fdrv`). Install from [Brostrend](https://linux.brostrend.com/) or [radxa-pkg/aic8800](https://github.com/radxa-pkg/aic8800).
+
+Then run:
 
 ```bash
 git clone https://github.com/olamellberg/AIC8800D80.git
@@ -14,9 +16,126 @@ cd AIC8800D80/linux
 sudo bash install.sh
 ```
 
-This installs everything needed: usb_modeswitch config, udev rules, driver VID:PID fixes, Bluetooth driver patches, and btusb conflict resolution.
+The install script handles **everything** in one go:
+- Installs prerequisites (usb-modeswitch, sg3-utils, build tools, kernel headers)
+- Configures usb_modeswitch for automatic mode switching
+- Installs udev rules for automatic driver binding
+- Patches `aic_load_fw` for BT firmware loading (replaces Brostrend's disabled version with Radxa's)
+- Patches WiFi driver VID:PID table (adds `a69c:8d83`)
+- Rebuilds DKMS with all patches
+- Builds and installs `aic_btusb` from Radxa source (with BlueZ fix + PID patches)
+- Installs modprobe config to prevent generic `btusb` conflicts
+- Configures module autoload at boot
 
-### Manual Steps
+After installation, unplug and re-plug the adapter:
+
+```bash
+lsusb                    # Should show a69c:8d81 (WiFi + BT) or a69c:8d83 (WiFi only)
+ip link show wlan1       # WiFi interface
+bluetoothctl show        # Bluetooth controller
+```
+
+## Bluetooth Support
+
+### The Problem
+
+After mode-switching, the AIC8800D80 exposes a standard Bluetooth USB interface (class `0xE0/0x01/0x01`). Linux's built-in `btusb` driver sees this and claims it, but doesn't know how to initialize the AIC8800 Bluetooth controller. This causes:
+
+```
+Bluetooth: hci0: Opcode 0x0c03 failed: -110
+```
+
+(HCI_Reset command timeout)
+
+### The Solution
+
+The AIC8800D80 requires **two** drivers working together for Bluetooth:
+
+1. **`aic_load_fw`** - Loads the BT firmware patches during initial firmware upload (8d80 boot ROM stage). This is critical: the Brostrend DKMS package has BT patch loading **disabled** with `#if 0` blocks. You need the [Radxa](https://github.com/radxa-pkg/aic8800) version of `aic_compat_8800d80.c` which enables BT.
+
+2. **`aic_btusb`** - The BT HCI driver that registers the Bluetooth controller with BlueZ. It does NOT load firmware for D80 (unlike the DC variant) - `aic_load_fw` handles that.
+
+Three fixes are needed (all handled automatically by `install.sh`):
+
+1. **`aic_load_fw` BT patch loading** - Replace the Brostrend `aic_compat_8800d80.c` with the Radxa version and rebuild DKMS. Without this, the device enumerates as `a69c:8d83` (WiFi only, no BT interfaces). With the fix, it enumerates as `a69c:8d81` (WiFi + BT, 3 interfaces).
+
+2. **CONFIG_BLUEDROID fix** - The `aic_btusb` driver defaults to Android's BlueDroid stack (`CONFIG_BLUEDROID=1`). On desktop Linux, this must be set to `0` to use BlueZ.
+
+3. **btusb conflict** - The generic `btusb` module must be prevented from claiming the device before `aic_btusb` can bind.
+
+See [docs/bluetooth-support.md](docs/bluetooth-support.md) for the full technical details.
+
+### Troubleshooting Bluetooth
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Device shows as `a69c:8d83` with 1 interface | `aic_load_fw` doesn't have BT patches enabled | Re-run `install.sh` (it patches aic_load_fw automatically) |
+| `bluetoothctl show` shows nothing | `aic_btusb` not loaded or `CONFIG_BLUEDROID=1` | `sudo modprobe aic_btusb` or re-run `install.sh` |
+| `Opcode 0x0c03 failed: -110` | Generic `btusb` claimed the device | `sudo rmmod btusb && sudo modprobe aic_btusb` |
+| `Operation not possible due to RF-kill` | RF-kill blocking BT | `sudo rfkill unblock bluetooth && sudo hciconfig hci1 up` |
+| `/dev/rtk_btusb` appears instead of `hci0` | `CONFIG_BLUEDROID=1` (Android mode) | Re-run `install.sh` (it sets CONFIG_BLUEDROID=0) |
+
+Check driver binding status:
+```bash
+sudo dmesg | grep -i 'btusb\|aic_btusb\|hci\|bluetooth'
+lsmod | grep bt
+lsusb -t    # Shows which driver is bound to each interface
+```
+
+## Advanced / Manual Setup
+
+If you prefer to run each step manually instead of using `install.sh`:
+
+### Patching aic_load_fw for BT Support
+
+If using the Brostrend DKMS driver, BT patch loading is disabled. To fix:
+
+```bash
+# Find your DKMS source
+ls /usr/src/aic8800-*/aic_load_fw/aic_compat_8800d80.c
+
+# Clone the Radxa source for the fixed file
+git clone --depth 1 --filter=blob:none --sparse https://github.com/radxa-pkg/aic8800.git /tmp/radxa-aic
+cd /tmp/radxa-aic && git sparse-checkout set src/USB/driver_fw/driver/aic_load_fw
+
+# Replace the file (adjust version as needed)
+sudo cp /tmp/radxa-aic/src/USB/driver_fw/driver/aic_load_fw/aic_compat_8800d80.c \
+    /usr/src/aic8800-1.0.8/aic_load_fw/aic_compat_8800d80.c
+
+# Rebuild DKMS (CRITICAL - the module won't update without this!)
+sudo dkms remove aic8800/1.0.8 -k $(uname -r)
+sudo dkms build aic8800/1.0.8 -k $(uname -r)
+sudo dkms install aic8800/1.0.8 -k $(uname -r) --force
+
+# Verify BT firmware strings are in the rebuilt module
+xz -dc /lib/modules/$(uname -r)/updates/dkms/aic_load_fw.ko.xz | strings | grep fw_adid_8800d80
+# Should show: fw_adid_8800d80_u02.bin
+```
+
+### Building aic_btusb from Source
+
+If your DKMS driver package doesn't include `aic_btusb`, use the standalone build script:
+
+```bash
+sudo bash linux/build-aic-btusb.sh
+```
+
+Or build manually from the [radxa-pkg/aic8800](https://github.com/radxa-pkg/aic8800) repo:
+
+```bash
+git clone --recurse-submodules https://github.com/radxa-pkg/aic8800.git
+cd aic8800/src/USB/driver_fw/drivers/aic_btusb
+
+# Apply the BlueZ fix before building
+sed -i 's/BLUEDROID        1/BLUEDROID        0/g' aic_btusb.h
+
+# Build and install
+make KDIR=/lib/modules/$(uname -r)/build CONFIG_PLATFORM_UBUNTU=y
+sudo cp aic_btusb.ko /lib/modules/$(uname -r)/kernel/drivers/bluetooth/
+sudo depmod -a
+```
+
+### Manual Mode-Switch and Driver Binding
 
 **1. Mode-switch the device** (one-time test):
 
@@ -57,21 +176,7 @@ sudo modprobe aic_btusb
 echo 'a69c 8d83' | sudo tee /sys/bus/usb/drivers/aic_btusb/new_id
 ```
 
-**4. Verify:**
-
-```bash
-# WiFi
-ip link show wlan1    # Should show the new WiFi interface
-sudo iw wlan1 scan    # Should list nearby networks
-
-# Bluetooth
-bluetoothctl show     # Should show the BT controller
-bluetoothctl scan on  # Should find nearby BT devices
-```
-
-### Make It Persistent (Across Reboots)
-
-Copy the config files from this repo:
+**4. Make persistent (across reboots):**
 
 ```bash
 # usb_modeswitch config - auto mode-switch on plug-in
@@ -83,105 +188,6 @@ sudo udevadm control --reload-rules
 
 # modprobe config - prevents generic btusb from stealing the BT interface
 sudo cp linux/modprobe/aic8800-bt.conf /etc/modprobe.d/
-
-# Driver VID:PID fixes (if using DKMS aic8800 driver)
-# See linux/patches/ for the kernel driver patches
-```
-
-## Bluetooth Support
-
-### The Problem
-
-After mode-switching, the AIC8800D80 exposes a standard Bluetooth USB interface (class `0xE0/0x01/0x01`). Linux's built-in `btusb` driver sees this and claims it, but doesn't know how to initialize the AIC8800 Bluetooth controller. This causes:
-
-```
-Bluetooth: hci0: Opcode 0x0c03 failed: -110
-```
-
-(HCI_Reset command timeout)
-
-### The Solution
-
-The AIC8800D80 requires **two** drivers working together for Bluetooth:
-
-1. **`aic_load_fw`** - Loads the BT firmware patches during initial firmware upload (8d80 boot ROM stage). This is critical: the Brostrend DKMS package has BT patch loading **disabled** with `#if 0` blocks. You need the [Radxa](https://github.com/radxa-pkg/aic8800) version of `aic_compat_8800d80.c` which enables BT.
-
-2. **`aic_btusb`** - The BT HCI driver that registers the Bluetooth controller with BlueZ. It does NOT load firmware for D80 (unlike the DC variant) - `aic_load_fw` handles that.
-
-Three fixes are needed:
-
-1. **`aic_load_fw` BT patch loading** - Replace the Brostrend `aic_compat_8800d80.c` with the Radxa version and rebuild DKMS. Without this, the device enumerates as `a69c:8d83` (WiFi only, no BT interfaces). With the fix, it enumerates as `a69c:8d81` (WiFi + BT, 3 interfaces).
-
-2. **CONFIG_BLUEDROID fix** - The `aic_btusb` driver defaults to Android's BlueDroid stack (`CONFIG_BLUEDROID=1`). On desktop Linux, this must be set to `0` to use BlueZ.
-
-3. **btusb conflict** - The generic `btusb` module must be prevented from claiming the device before `aic_btusb` can bind.
-
-The `install.sh` script handles fixes 2-3. Fix 1 requires patching the DKMS source.
-
-### Patching aic_load_fw for BT Support
-
-If using the Brostrend DKMS driver, BT patch loading is disabled. To fix:
-
-```bash
-# Find your DKMS source
-ls /usr/src/aic8800-*/aic_load_fw/aic_compat_8800d80.c
-
-# Clone the Radxa source for the fixed file
-git clone --depth 1 --filter=blob:none --sparse https://github.com/radxa-pkg/aic8800.git /tmp/radxa-aic
-cd /tmp/radxa-aic && git sparse-checkout set src/USB/driver_fw/driver/aic_load_fw
-
-# Replace the file (adjust version as needed)
-sudo cp /tmp/radxa-aic/src/USB/driver_fw/driver/aic_load_fw/aic_compat_8800d80.c \
-    /usr/src/aic8800-1.0.8/aic_load_fw/aic_compat_8800d80.c
-
-# Rebuild DKMS (CRITICAL - the module won't update without this!)
-sudo dkms remove aic8800/1.0.8 -k $(uname -r)
-sudo dkms build aic8800/1.0.8 -k $(uname -r)
-sudo dkms install aic8800/1.0.8 -k $(uname -r) --force
-
-# Verify BT firmware strings are in the rebuilt module
-xz -dc /lib/modules/$(uname -r)/updates/dkms/aic_load_fw.ko.xz | strings | grep fw_adid_8800d80
-# Should show: fw_adid_8800d80_u02.bin
-```
-
-### Building aic_btusb from Source
-
-If your DKMS driver package doesn't include `aic_btusb`, use the automated build script:
-
-```bash
-sudo bash linux/build-aic-btusb.sh
-```
-
-Or build manually from the [radxa-pkg/aic8800](https://github.com/radxa-pkg/aic8800) repo:
-
-```bash
-git clone --recurse-submodules https://github.com/radxa-pkg/aic8800.git
-cd aic8800/src/USB/driver_fw/drivers/aic_btusb
-
-# Apply the BlueZ fix before building
-sed -i 's/BLUEDROID        1/BLUEDROID        0/g' aic_btusb.h
-
-# Build and install
-make KDIR=/lib/modules/$(uname -r)/build CONFIG_PLATFORM_UBUNTU=y
-sudo cp aic_btusb.ko /lib/modules/$(uname -r)/kernel/drivers/bluetooth/
-sudo depmod -a
-```
-
-### Troubleshooting Bluetooth
-
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| Device shows as `a69c:8d83` with 1 interface | `aic_load_fw` doesn't have BT patches enabled | Patch `aic_compat_8800d80.c` with Radxa version, rebuild DKMS |
-| `bluetoothctl show` shows nothing | `aic_btusb` not loaded or `CONFIG_BLUEDROID=1` | Rebuild with `CONFIG_BLUEDROID=0`, run `sudo modprobe aic_btusb` |
-| `Opcode 0x0c03 failed: -110` | Generic `btusb` claimed the device | `sudo rmmod btusb && sudo modprobe aic_btusb` |
-| `Operation not possible due to RF-kill` | RF-kill blocking BT | `sudo rfkill unblock bluetooth && sudo hciconfig hci1 up` |
-| `/dev/rtk_btusb` appears instead of `hci0` | `CONFIG_BLUEDROID=1` (Android mode) | Rebuild with `CONFIG_BLUEDROID=0` |
-
-Check driver binding status:
-```bash
-sudo dmesg | grep -i 'btusb\|aic_btusb\|hci\|bluetooth'
-lsmod | grep bt
-lsusb -t    # Shows which driver is bound to each interface
 ```
 
 ## The Mode-Switch Command
@@ -270,8 +276,8 @@ AIC8800D80/
 ├── README.md                          # This file
 ├── LICENSE                            # MIT
 ├── linux/
-│   ├── install.sh                     # Automated install script (WiFi + BT)
-│   ├── build-aic-btusb.sh            # Build aic_btusb from radxa source
+│   ├── install.sh                     # All-in-one installer (WiFi + BT, DKMS patching, aic_btusb build)
+│   ├── build-aic-btusb.sh            # Standalone aic_btusb builder (if you only need BT driver)
 │   ├── usb_modeswitch/
 │   │   └── 1111_1111                  # usb_modeswitch config (install as 1111:1111)
 │   ├── udev/
@@ -285,6 +291,7 @@ AIC8800D80/
 ├── docs/
 │   ├── reverse-engineering-results.md # Full RE findings
 │   ├── reverse-engineering-guide.md   # How to RE similar devices
+│   ├── bluetooth-support.md           # Detailed BT architecture and troubleshooting
 │   └── windows-driver-analysis.md     # Windows DLL/driver analysis
 └── windows/
     └── INF/
