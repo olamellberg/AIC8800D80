@@ -132,7 +132,7 @@ alias usb:v0A69Cp8D83d*dc*dsc*dp*icE0isc01ip01in* aic_btusb
 
 ## Quick Install
 
-The all-in-one `install.sh` script handles everything automatically: DKMS patching, aic_btusb build, modprobe config, and module autoload.
+No prerequisites needed — the all-in-one `install.sh` script handles everything automatically, including installing the DKMS driver from Radxa source if not present. It also detects and cleans up broken/partial installs.
 
 ```bash
 git clone https://github.com/olamellberg/AIC8800D80.git
@@ -141,12 +141,11 @@ sudo bash install.sh
 ```
 
 The script will:
-1. Install prerequisites (usb-modeswitch, sg3-utils, build tools, kernel headers)
-2. Set up usb_modeswitch config and udev rules
-3. Patch `aic_load_fw` for BT firmware loading (replace Brostrend's disabled version with Radxa's)
-4. Patch WiFi driver VID:PID table and rebuild DKMS
-5. Build and install `aic_btusb` (with BlueZ fix + PID patches)
-6. Install modprobe config and module autoload
+1. Install prerequisites (usb-modeswitch, sg3-utils, build tools, kernel headers, dkms)
+2. Auto-install DKMS driver from Radxa source (or patch existing Brostrend/Radxa install)
+3. Set up usb_modeswitch config and udev rules
+4. Build and install `aic_btusb` (with BlueZ fix + PID patches)
+5. Install modprobe config and module autoload
 
 After the script completes, unplug and re-plug the adapter:
 

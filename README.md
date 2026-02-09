@@ -6,9 +6,7 @@ These adapters use a clone VID:PID `1111:1111` ("Pandora") and show up as a fake
 
 ## Quick Start (Linux)
 
-**Prerequisite:** You need the AIC8800 DKMS driver installed (provides `aic_load_fw` + `aic8800_fdrv`). Install from [Brostrend](https://linux.brostrend.com/) or [radxa-pkg/aic8800](https://github.com/radxa-pkg/aic8800).
-
-Then run:
+No prerequisites needed. The script auto-installs the AIC8800 DKMS driver if not found, and handles messy environments (broken installs, Radxa .deb packages with `_usb` suffix modules, Brostrend with BT disabled, etc.).
 
 ```bash
 git clone https://github.com/olamellberg/AIC8800D80.git
@@ -17,12 +15,12 @@ sudo bash install.sh
 ```
 
 The install script handles **everything** in one go:
-- Installs prerequisites (usb-modeswitch, sg3-utils, build tools, kernel headers)
+- Installs prerequisites (usb-modeswitch, sg3-utils, build tools, kernel headers, dkms)
+- Auto-installs AIC8800 DKMS driver from [Radxa source](https://github.com/radxa-pkg/aic8800) if not present
+- Detects and fixes broken/partial installs (Brostrend BT disabled, Radxa `_usb` suffix modules, orphaned DKMS)
 - Configures usb_modeswitch for automatic mode switching
 - Installs udev rules for automatic driver binding
-- Patches `aic_load_fw` for BT firmware loading (replaces Brostrend's disabled version with Radxa's)
-- Patches WiFi driver VID:PID table (adds `a69c:8d83`)
-- Rebuilds DKMS with all patches
+- Patches WiFi driver VID:PID table (adds `a69c:8d83`) and rebuilds DKMS
 - Builds and installs `aic_btusb` from Radxa source (with BlueZ fix + PID patches)
 - Installs modprobe config to prevent generic `btusb` conflicts
 - Configures module autoload at boot
@@ -264,7 +262,7 @@ If your adapter shows `1111:1111` in `lsusb` and the SCSI name includes "WIFI6" 
 
 ### Compatible Linux Drivers
 
-The AIC8800 DKMS driver is required. Known sources:
+The AIC8800 DKMS driver is required (`install.sh` auto-installs it from Radxa source if not found). Known sources:
 - [radxa-pkg/aic8800](https://github.com/radxa-pkg/aic8800) (recommended - includes WiFi + Bluetooth)
 - [Brostrend AIC8800 DKMS](https://linux.brostrend.com/)
 - [goecho/aic8800_linux_drvier](https://github.com/goecho/aic8800_linux_drvier)
